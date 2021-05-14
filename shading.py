@@ -3,7 +3,7 @@ import numpy as np
 import math
 import random
 from scipy.interpolate import splprep, splev
-from custom_settings import user_control_num_lines, user_control_line_length, user_control_amplitude, user_control_curviness, user_control_num_oriented
+from custom_settings import user_control_num_lines, user_control_max_dist, user_control_amplitude, user_control_curviness, user_control_num_oriented
 
 
 def get_thesholds(img):
@@ -127,7 +127,7 @@ def create_point_set(blob, threshold, area, gray_img):
 
     vol = (max(x) - min(x)) * (max(y) - min(y))
 
-    max_dist = user_control_line_length * int(min(max(x) - min(x), max(y) - min(y)) * 1.2 * (area/vol))
+    max_dist = user_control_max_dist * int(min(max(x) - min(x), max(y) - min(y)) * 1.2 * (area/vol))
 
     min_dist = int(max_dist / 2.)
 
@@ -298,33 +298,33 @@ def perturb_points(pts, perturb_value=1):
 
 
 def create_lines(gray_img, blobs, thresholds, areas):
-    imgs = []
     shape = gray_img.shape
+    lines_array = []
+    lines_img = np.uint8(np.zeros(shape))
 
     # for each blob create a new point gets
     for i, blob in enumerate(blobs):
         pts = create_point_set(blob, thresholds[i], areas[i], gray_img)
 
-        img = np.uint8(np.zeros(shape))
         for j in range(0, len(pts) - 1, 2):
             to_draw = draw_stroke(pts[j], pts[j + 1], areas[i], gray_img)
             spline_points = create_spline_pts(to_draw, shape)
             perturbed_points = perturb_points(spline_points)
 
-            img = cv2.add(img, pts_to_spline(shape, perturbed_points))
-        imgs.append(np.uint8(img))
+            spline = pts_to_spline(shape, perturbed_points)
+            lines_array.append(spline)
+            lines_img = cv2.add(spline, lines_img)
 
-    return imgs
+    num_non_zeros = [(line.sum(), line) for line in lines_array]
+    num_non_zeros = sorted(num_non_zeros, key=lambda tup: tup[0], reverse=True)
+    lines_array = [t[1] for t in num_non_zeros]
+
+    return lines_img, lines_array
 
 
 def shade(gray_img):
     thresh_imgs, thresholds = threshold_imgs(cv2.blur(gray_img, (10, 10)))
     ccs, thresholds, areas = get_ccs(thresh_imgs, thresholds)
-    lines = create_lines(gray_img, ccs, thresholds, areas)
+    lines_img, lines_array = create_lines(gray_img, ccs, thresholds, areas)
 
-    total_img = np.uint8(np.zeros((gray_img.shape[0], gray_img.shape[1])))
-
-    for l in lines:
-        total_img = cv2.add(total_img, np.uint8(l))
-
-    return total_img
+    return lines_img, lines_array

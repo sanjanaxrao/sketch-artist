@@ -2,13 +2,29 @@ import numpy as np
 import cv2
 import time
 import os
+from custom_settings import user_control_frame_rate
 
 
-def pts_to_spline(img_size, pts):
-    spline = np.zeros(img_size)
-    for i in range(len(pts) - 1):
-        cv2.line(spline, tuple(pts[i]), tuple(pts[i+1]), 255, thickness=1)
-    return np.uint8(spline)
+def draw_animation(lines, shading_img, shading_lines):
+    total_img = np.uint8(np.zeros(shading_img.shape))
+    width, height = shading_img.shape
+    out = cv2.VideoWriter("output.avi", cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
+                            user_control_frame_rate, (height, width), False)
+    for line in lines:
+        # add line to image
+        total_img = cv2.add(np.uint8(line), total_img)
+        # add to video
+        to_draw = np.where(total_img == 0, 255, 0)
+        out.write(np.uint8(to_draw))
+
+    for shading_line in shading_lines:
+        # add line to image
+        total_img = cv2.add(np.uint8(shading_line), total_img)
+        # add to video
+        to_draw = np.where(total_img == 0, 255, 0)
+        out.write(np.uint8(to_draw))
+
+    out.release()
 
 
 def composite_image(lines, shading):
@@ -20,9 +36,6 @@ def composite_image(lines, shading):
 
     total_img = cv2.add(total_img, np.uint8(shading))
     total_img = np.where(total_img == 0, 255, 0)
-
-    global curr_image
-    curr_image = np.ones(total_img.shape) * 255
 
     return total_img
 
@@ -46,9 +59,14 @@ def save_image(img, filepath):
         raise Exception("Could not write image")
 
 
-def draw_lines(lines, shading, filepath, save_img=True):
-
-    final_img = draw_still(lines, shading)
+def draw_lines(lines, shading_img, shading_lines, filepath, save_img=True, animate=True):
+    if animate:
+        print('animating output ' + str(filepath))
+        final_img = draw_animation(lines, shading_img, shading_lines)
+    else:
+        print('drawing output ' + str(filepath))
+        final_img = draw_still(lines, shading_img)
 
     if save_img:
+        print('saving output ' + str(filepath))
         save_image(final_img, filepath)

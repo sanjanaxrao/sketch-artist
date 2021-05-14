@@ -33,9 +33,7 @@ if __name__ == "__main__":
     processed_lines = thinning(lines)
     print('lines thinned')
 
-    shading = shade(gray_img)  # 2d arr of pts per spline
+    shading_img, shading_lines = shade(gray_img)  # 2d arr of pts per spline
     print('shading completed')
-    print('drawing output ' + str(file))
-    print()
-    draw_lines(processed_lines, shading, file, save_img=False)
+    draw_lines(processed_lines, shading_img, shading_lines, file, save_img=False, animate=True)
 
